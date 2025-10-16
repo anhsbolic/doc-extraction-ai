@@ -1,0 +1,61 @@
+version: "3.9"
+
+services:
+  docai-redis:
+    image: redis:7-alpine
+    container_name: docai-redis
+    ports:
+      - "6379:6379"
+
+  docai-minio:
+    image: minio/minio:latest
+    container_name: docai-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - ./_data/minio:/data
+
+  # FastAPI API service
+  docai-extract-api:
+    container_name: docai-extract-api
+    build:
+      context: .
+      target: dev        # <<<<< use "dev" stage
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
+    ports:
+      - "8080:8080"
+    environment:
+      REDIS_URL: redis://docai-redis:6379/0
+      MINIO_ENDPOINT: docai-minio:9000
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: minio123
+      MINIO_BUCKET: docai-extract
+      MINIO_REGION: us-east-1
+    volumes:
+      - ./:/app
+    depends_on:
+      - docai-redis
+      - docai-minio
+
+  # Docs Worker
+  docai-worker-docs:
+    container_name: docai-worker-docs
+    build:
+      context: .
+      target: prod       # <<<<< use "prod" stage
+    command: python -m app.worker.worker --queues docs
+    environment:
+      REDIS_URL: redis://docai-redis:6379/0
+      MINIO_ENDPOINT: docai-minio:9000
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: minio123
+      MINIO_BUCKET: docai-extract
+    volumes:
+      - ./:/app
+    depends_on:
+      - docai-redis
