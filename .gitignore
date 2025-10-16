@@ -153,3 +153,4 @@ cython_debug/
 
 # Data files
 ._data/
+/_data/
