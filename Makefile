@@ -11,7 +11,7 @@ WORKER_SERVICE = vdr-extract-worker
 
 build:
 	@echo "🔨 Building all Docker images..."
-	$(COMPOSE) build
+	$(COMPOSE) build --no-cache
 
 up:
 	@echo "🚀 Starting $(PROJECT_NAME) stack..."
@@ -52,7 +52,8 @@ ps:
 
 remove-orphans:
 	@echo "🧹 Removing orphaned containers..."
-	$(COMPOSE) down --remove-orphans
+	rm -rf ./_data/minio
+	$(COMPOSE) down -v --remove-orphans
 
 # ======================================================
 # 🧩 Development Helpers
