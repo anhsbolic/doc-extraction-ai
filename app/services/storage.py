@@ -1,6 +1,8 @@
 import io
 import json
 import os
+import tempfile
+from typing import Iterable
 
 from minio import Minio
 from minio.error import S3Error
@@ -59,3 +61,32 @@ def get_json_from_minio(client: Minio, bucket: str, key: str):
         return json.loads(data.decode("utf-8"))
     except Exception:
         return None
+
+
+def get_object_to_tempfile(bucket: str, key: str) -> str:
+    """
+    Download object dari MinIO ke tempfile, return path-nya.
+    """
+    c = get_minio_client()
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(key)[-1])
+    resp = c.get_object(bucket, key)
+    try:
+        data = resp.read()
+        tmp.write(data)
+        tmp.flush()
+        return tmp.name
+    finally:
+        resp.close()
+        resp.release_conn()
+        tmp.close()
+
+
+def put_jsonl_lines(key: str, lines: Iterable[dict]):
+    """
+    Upload sekumpulan dict sebagai JSONL (NDJSON) dalam sekali put_object.
+    """
+    buf = io.BytesIO()
+    for obj in lines:
+        buf.write((json.dumps(obj, ensure_ascii=False) + "\n").encode("utf-8"))
+    payload = buf.getvalue()
+    put_bytes(key, payload, content_type="application/x-ndjson")
